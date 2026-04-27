@@ -147,4 +147,85 @@ class CombatRegistryEventStatsSpider(Spider):
 
 
 class CombatRegistryFighterSpider(Spider):
-    pass
+    name = "combatreg_fighter_spider"
+    custom_settings = {
+        "ROBOTSTXT_OBEY": False,
+        "CONCURRENT_REQUESTS_PER_DOMAIN": 6,
+        "CONCURRENT_REQUESTS": 6,
+        "COOKIES_ENABLED": False,
+        "DOWNLOADER_MIDDLEWARES": {
+            "scrapy.downloadermiddlewares.useragent.UserAgentMiddleware": None,
+            "scrapy_user_agents.middlewares.RandomUserAgentMiddleware": 400,
+        },
+        "REQUEST_FINGERPRINTER_IMPLEMENTATION": "2.7",
+        "TWISTED_REACTOR": "twisted.internet.asyncioreactor.AsyncioSelectorReactor",
+        "FEED_EXPORT_ENCODING": "utf-8",
+        "DEPTH_PRIORITY": 1,
+        "SCHEDULER_DISK_QUEUE": "scrapy.squeues.PickleFifoDiskQueue",
+        "SCHEDULER_MEMORY_QUEUE": "scrapy.squeues.FifoMemoryQueue",
+        "RETRY_TIMES": 0,
+        "LOG_LEVEL": "INFO",
+        "CLOSESPIDER_ERRORCOUNT": 1,
+    }
+
+    def start_requests(self):
+        dir_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "..",
+            "..",
+            "..",
+            "data",
+            "raw",
+            "combatreg",
+        )
+
+        with open(os.path.join(dir_path, "metadata.json"), "r", encoding="utf-8") as f:
+            metadata = json.load(f)
+
+        fighter_uuids = []
+        for event in metadata:
+            fights = event["fights"]
+            for fight in fights:
+                fighters = fight["fighters"]
+                for fighter in fighters:
+                    fighter_uuids.append(fighter["uuid"])
+
+        fighter_uuids = list(set(fighter_uuids))
+        for uuid in fighter_uuids:
+            url = f"https://xapi.mmareg.com/fighters/{uuid}/basic"
+
+            yield Request(
+                url,
+                headers={
+                    "X-Api-Key": COMBATREG_API_KEY,
+                    "Accept": "application/json",
+                },
+                callback=self.parse,
+            )
+
+    def parse(self, response):
+        data = json.loads(response.text)
+
+        yield data
+
+        # Find opponents and crawl them too
+        fights_history = data["fights_history"]
+        fighter_uuids = []
+        for fight in fights_history:
+            fighters = fight["fighters"]
+            for fighter in fighters:
+                fighter_uuids.append(fighter["uuid"])
+
+        fighter_uuids = list(set(fighter_uuids))
+        for uuid in fighter_uuids:
+            url = f"https://xapi.mmareg.com/fighters/{uuid}/detailed"
+
+            yield Request(
+                url,
+                headers={
+                    "X-Api-Key": COMBATREG_API_KEY,
+                    "Accept": "application/json",
+                },
+                callback=self.parse,
+            )
