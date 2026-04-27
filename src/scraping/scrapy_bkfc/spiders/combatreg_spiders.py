@@ -3,6 +3,7 @@ import json
 import os
 
 # third party imports
+import pandas as pd
 from dotenv import load_dotenv
 from scrapy import Request
 from scrapy.spiders import Spider
@@ -87,3 +88,63 @@ class CombatRegistryMetaSpider(Spider):
                 "promoter_id": promoter_id,
             },
         )
+
+
+class CombatRegistryEventStatsSpider(Spider):
+    name = "combatreg_event_stats_spider"
+    custom_settings = {
+        "ROBOTSTXT_OBEY": False,
+        "CONCURRENT_REQUESTS_PER_DOMAIN": 1,
+        "CONCURRENT_REQUESTS": 1,
+        "COOKIES_ENABLED": False,
+        "DOWNLOADER_MIDDLEWARES": {
+            "scrapy.downloadermiddlewares.useragent.UserAgentMiddleware": None,
+            "scrapy_user_agents.middlewares.RandomUserAgentMiddleware": 400,
+        },
+        "REQUEST_FINGERPRINTER_IMPLEMENTATION": "2.7",
+        "TWISTED_REACTOR": "twisted.internet.asyncioreactor.AsyncioSelectorReactor",
+        "FEED_EXPORT_ENCODING": "utf-8",
+        "DEPTH_PRIORITY": 1,
+        "SCHEDULER_DISK_QUEUE": "scrapy.squeues.PickleFifoDiskQueue",
+        "SCHEDULER_MEMORY_QUEUE": "scrapy.squeues.FifoMemoryQueue",
+        "RETRY_TIMES": 0,
+        "LOG_LEVEL": "INFO",
+        "ITEM_PIPELINES": {
+            "scrapy_bkfc.pipelines.combatreg_pipelines.CombatRegistryEventStatsPipeline": 100,
+        },
+        "CLOSESPIDER_ERRORCOUNT": 1,
+        "DOWNLOAD_DELAY": 0.5,
+    }
+
+    def start_requests(self):
+        dir_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "..",
+            "..",
+            "..",
+            "data",
+            "raw",
+            "combatreg",
+        )
+        mapping_df = pd.read_csv(os.path.join(dir_path, "manual_mapping.csv"))
+        ids = mapping_df.loc[
+            mapping_df["final_stats_id"].notnull(), "final_stats_id"
+        ].values.tolist()
+        ids = [int(id) for id in ids]  # type: ignore
+
+        for id in ids:
+            url = f"https://xapi.mmareg.com/api/v2/bkfc/?type=json&modifier=event-stats&id={id}"
+            yield Request(
+                url,
+                callback=self.parse,
+            )
+
+    def parse(self, response):
+        data = json.loads(response.text)
+
+        yield data
+
+
+class CombatRegistryFighterSpider(Spider):
+    pass
