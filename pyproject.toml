@@ -9,6 +9,7 @@ dependencies = [
     "fake-useragent>=2.2.0",
     "ipykernel==6.30.1",
     "jupyter>=1.1.1",
+    "orjson>=3.11.9",
     "pandas>=3.0.2",
     "polars>=1.40.1",
     "python-dotenv>=1.2.2",
