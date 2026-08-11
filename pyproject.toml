@@ -12,6 +12,7 @@ dependencies = [
     "orjson>=3.11.9",
     "pandas>=3.0.2",
     "polars>=1.40.1",
+    "pyarrow>=25.0.1",
     "python-dotenv>=1.2.2",
     "requests>=2.33.1",
     "scrapy>=2.15.1",
